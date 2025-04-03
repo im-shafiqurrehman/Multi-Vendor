@@ -1,121 +1,128 @@
-const catchAsyncError = require("../middlewares/catchAsyncError");
-const User = require("../model/userModel");
-const ErrorHandler = require("../utils/ErrorHandler");
 const express = require("express");
+const path = require("path");
+const ErrorHandler = require("../utils/ErrorHandler");
+const { upload } = require("../utils/multer.js");
+const User = require("../model/userModel.js");
+const catchAsyncError = require("../middlewares/catchAsyncError.js");
+const fs = require("fs");
 const jwt = require("jsonwebtoken");
-const router = express.Router();
-const cloudinary = require("cloudinary");
-
-const sendEmail = require("../utils/sendEmail");
 const sendToken = require("../utils/jwtToken");
-const { isAuthenticated } = require("../middlewares/auth");
+const sendMail = require("../utils/sendEmail.js");
+const { isAuthenticated } = require("../middlewares/auth.js");
+const router = express.Router();
 
-router.post(
-  "/create-user",
-  catchAsyncError(async (req, res, next) => {
+
+//craete_user Route
+router.post("/create-user", upload.single("file"), async (req, res, next) => {
+  try {
     const { name, email, password } = req.body;
-    const userEmail = await User.findOne({ email });
-
-    if (userEmail) {
-      return next(
-        new ErrorHandler(400, `user with this email ${email} already exists.`)
-      );
+    //All fields are required
+    if (!name || !email || !password) {
+      return next(new ErrorHandler("All Fields Are Required!", 400));
     }
 
-    const myCloud = await cloudinary.v2.uploader.upload(req.body.file, {
-      folder: "avatars-MV",
-      width: 150,
-      crop: "scale",
-    });
+    const userEmail = await User.findOne({ email });
+    // if the user Email already found in our DataBase
+    if (userEmail) {
+      //the file should also be deleted from server
+      const filename = req.file.filename;
+      const filePath = `uploads/${filename}`;
+      fs.unlink(filePath, (err) => {
+        if (err) {
+          console.log(err);
+          res.status(500).json({
+            message: "Error Deleting Files",
+          });
+        }
+      });
 
+      return next(new ErrorHandler("User Already Exist", 409));
+    }
+
+    //if not then we will create a new User
+
+    const filename = req.file.filename;
+    const fileURL = path.join(filename);
     const user = {
       name,
       email,
       password,
-      avatar: {
-        public_id: myCloud.public_id,
-        url: myCloud.url,
-      },
+      avatar: fileURL,
     };
-
     const activationToken = createActivationToken(user);
-    const activationUrl = `https://multi-vendor-e-commerce-mern-app-frontend.vercel.app/activate/${activationToken}`;
-
+    const activationUrl = `http://localhost:8000/activation/${activationToken}`;
     try {
-      sendEmail({
+      await sendMail({
         email: user.email,
-        subject: `Complete your signup by clicking the link inside`,
-        emailMessage: `Hi ${user.name}!
-        This is activation Url: ${activationUrl}`,
+        subject: "Activate Your Account!",
+        emailMessage: `Hello!\n Dear ${user.name}\n Please click on the link below to activate your account \n${activationUrl}`,
       });
       res.status(201).json({
         success: true,
-        message: `please check your email:- ${user.email} to activate your account!`,
+        emailMessage: `Please check your email:-${user.email} to activate your account!`,
       });
     } catch (error) {
-      return next(new ErrorHandler(400, error.message));
+      next(new ErrorHandler(error.message, 500));
     }
-  })
-);
-
+  } catch (error) {
+    next(new ErrorHandler(error.message, 400));
+  }
+});
+//create activation Token (Function)
 const createActivationToken = (user) => {
-  return jwt.sign(user, process.env.JWT_SECRET_KEY, {
-    expiresIn: "10m",
+  return jwt.sign(user, process.env.ACTIVATION_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES,
   });
 };
-
+//activate user Route
 router.post(
   "/activation",
   catchAsyncError(async (req, res, next) => {
-    const { activation_token } = req.body;
-    const newUser = jwt.verify(activation_token, process.env.JWT_SECRET_KEY);
+    try {
+      const { activation_token } = req.body;
+      const newUser = jwt.verify(
+        activation_token,
+        process.env.ACTIVATION_SECRET
+      );
+      if (!newUser) {
+        next(new ErrorHandler("Invalid Token", 400));
+      }
+      const { name, email, password, avatar } = newUser;
+      let user = await User.findOne({ email });
+      if (user) {
+        return next(new ErrorHandler("User already exists", 400));
+      }
 
-    if (!newUser) {
-      return next(new ErrorHandler("Invalid token", 400));
+      user = await User.create({
+        name,
+        email,
+        password,
+        avatar,
+      });
+      sendToken(user, 201, res);
+    } catch (error) {
+      next(new ErrorHandler(error.message, 500));
     }
-    const { name, email, password, avatar } = newUser;
-
-    let user = await User.findOne({ email });
-
-    if (user) {
-      return next(new ErrorHandler(400, "User already exists"));
-    }
-    user = await User.create({
-      name,
-      email,
-      avatar,
-      password,
-    });
-
-    sendToken(user, 201, res);
   })
 );
-
-// login user
+//login_user Route
 router.post(
-  "/login",
+  "/login-user",
   catchAsyncError(async (req, res, next) => {
     try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return next(new ErrorHandler(400, "Please provide the all fields!"));
-      }
-
+      let { email, password } = req.body;
+      if (!email || !password)
+        return next(new ErrorHandler("All Fileds are required!", 500));
       const user = await User.findOne({ email }).select("+password");
-
       if (!user) {
-        return next(new ErrorHandler(400, "User doesn't exists!"));
+        return next(new ErrorHandler("User Does't Exist!", 400));
       }
-
-      const isPasswordValid = await user.comparePassword(password);
-
-      if (!isPasswordValid) {
+      const ValidPassword = await user.comparePassword(password);
+      if (!ValidPassword) {
         return next(
-          new ErrorHandler(400, "Please provide the correct information")
+          new ErrorHandler("Please,Provide the correct information!", 400)
         );
       }
-
       sendToken(user, 201, res);
     } catch (error) {
       return next(new ErrorHandler(error.message, 500));
@@ -123,18 +130,18 @@ router.post(
   })
 );
 
-// load user
+
+
+//load User Route
 router.get(
-  "/getuser",
+  "/get-user",
   isAuthenticated,
   catchAsyncError(async (req, res, next) => {
     try {
-      const user = await User.findById(req.user.id);
-
+      const user = await User.findById(req.user._id);
       if (!user) {
-        return next(new ErrorHandler(401, "User does'nt exist."));
+        return next(new ErrorHandler("User does'nt exist!", 400));
       }
-
       res.status(200).json({
         success: true,
         user,
@@ -145,27 +152,24 @@ router.get(
   })
 );
 
-// logout user
+
+// Logout User
 router.get(
   "/logout",
   isAuthenticated,
-  catchAsyncError(async (req, res, next) => {
+  catchAsyncError(async (reeq, res, next) => {
     try {
-      res.cookie("token", null, {
+      res.cookie("token", "", {
         expires: new Date(Date.now()),
         httpOnly: true,
-        sameSite: "none",
-        secure: true,
       });
-
-      res.status(200).json({
+      res.status(201).json({
         success: true,
-        message: "Logout successfully",
+        message: "Logout Successfully!",
       });
     } catch (error) {
       return next(new ErrorHandler(error.message, 500));
     }
   })
 );
-
 module.exports = router;

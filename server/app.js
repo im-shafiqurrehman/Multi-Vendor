@@ -1,33 +1,22 @@
 const express = require("express");
 const app = express();
 const ErrorMiddleWare = require("./middlewares/error");
-const fileupload = require("express-fileupload");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 
-// config
 if (process.env.NODE_ENV !== "PRODUCTION") {
   require("dotenv").config({ path: "./config/.env" });
 }
 
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-app.use(fileupload());
-app.use(express.json());
+// Middleware
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true,
+}));
 app.use(cookieParser());
-app.use(
-  cors({
-    origin: 'http://localhost:3000',
-    credentials: true,
-  })
-);
 
-app.use("/testing", (req, res) => {
-  res.send("Hello World, it's working.");
-});
-
-// import route controllers
+// Routes (before body parsers)
 const user = require("./controllers/userController");
 const shop = require("./controllers/shopController");
 const product = require("./controllers/productController");
@@ -46,7 +35,17 @@ app.use("/api/v1/coupon", coupon);
 app.use("/api/v1/withdraw", withdraw);
 app.use("/api/v1/payment", payment);
 
-// Error Middle ware
+// Body parsers (after routes)
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.json()); // Optional, can replace bodyParser.json()
+
+// Test route
+app.use("/testing", (req, res) => {
+  res.send("Hello World, it's working.");
+});
+
+// Error Middleware
 app.use(ErrorMiddleWare);
 
 module.exports = app;

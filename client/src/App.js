@@ -6,6 +6,7 @@ import {
   LoginPage,
   SignUpPage,
   ForgotPasswordPage,
+  ResetPasswordPage,
   ActivationPage,
   HomePage,
   ProductsPage,
@@ -61,6 +62,7 @@ import { server } from "./server";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 
+
 const App = () => {
   const [stripeApikey, setStripeApiKey] = useState("");
 
@@ -97,6 +99,7 @@ const App = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/sign-up" element={<SignUpPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route
           path="/activation/:activation_token"
           element={<ActivationPage />}

@@ -18,10 +18,12 @@ import ShopHomePage from "../pages/Shop/ShopHomePage.jsx";
 import OrderDetailsPage from "../pages/OrderDetailsPage.jsx";
 import TrackOrderPage from "../pages/TrackOrderPage.jsx";
  import ForgotPasswordPage from "../pages/ForgotPasswordPage.jsx";
+ import ResetPasswordPage from "../pages/ResetPasswordPage.jsx";
 
 export {
   LoginPage,
   ForgotPasswordPage,
+  ResetPasswordPage,
   SignUpPage,
   ActivationPage,
   HomePage,

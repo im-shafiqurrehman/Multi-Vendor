@@ -10,36 +10,28 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: [true, "Please enter your email!"],
+    unique: true,
+    trim: true,
+    lowercase: true,
   },
   password: {
     type: String,
     required: [true, "Please enter your password"],
-    minLength: [4, "Password should be greater than 4 characters"],
+    minLength: [6, "Password should be greater than 6 characters"],
     select: false,
   },
   phoneNumber: {
     type: Number,
+    trim: true,
   },
   addresses: [
     {
-      country: {
-        type: String,
-      },
-      city: {
-        type: String,
-      },
-      address1: {
-        type: String,
-      },
-      address2: {
-        type: String,
-      },
-      zipCode: {
-        type: Number,
-      },
-      addressType: {
-        type: String,
-      },
+      country: { type: String },
+      city: { type: String },
+      address1: { type: String },
+      address2: { type: String },
+      zipCode: { type: String },
+      addressType: { type: String },
     },
   ],
   role: {
@@ -47,40 +39,36 @@ const userSchema = new mongoose.Schema({
     default: "user",
   },
   avatar: {
-    public_id: {
-      type: String,
-      required: true,
-    },
-    url: {
-      type: String,
-      required: true,
-    },
+    type: String,
+    required: true,
   },
   createdAt: {
     type: Date,
-    default: Date.now(),
+    default: Date.now,
   },
   resetPasswordToken: String,
   resetPasswordTime: Date,
+  activationToken: String, // Add this field
+  activationExpiry: Number, // Add this field
 });
 
-//  Hash password
+// Hash password before saving to database
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {
-    next();
+    return next();
   }
 
   this.password = await bcrypt.hash(this.password, 10);
 });
 
-// jwt token
+// Generate JWT token for authentication
 userSchema.methods.getJwtToken = function () {
   return jwt.sign({ id: this._id }, process.env.JWT_SECRET_KEY, {
     expiresIn: process.env.JWT_EXPIRES,
   });
 };
 
-// compare password
+// Compare entered password with stored hashed password
 userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

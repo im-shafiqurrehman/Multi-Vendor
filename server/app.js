@@ -9,14 +9,17 @@ if (process.env.NODE_ENV !== "PRODUCTION") {
   require("dotenv").config({ path: "./config/.env" });
 }
 
-// Middleware
+// Middleware (place before routes)
 app.use(cors({
   origin: "http://localhost:3000",
   credentials: true,
 }));
 app.use(cookieParser());
+app.use(bodyParser.json()); // Parse JSON bodies
+app.use(bodyParser.urlencoded({ extended: false })); // Parse URL-encoded bodies
+app.use(express.json()); // Optional, can replace bodyParser.json() if preferred
 
-// Routes (before body parsers)
+// Routes (place after middleware)
 const user = require("./controllers/userController");
 const shop = require("./controllers/shopController");
 const product = require("./controllers/productController");
@@ -35,17 +38,12 @@ app.use("/api/v1/coupon", coupon);
 app.use("/api/v1/withdraw", withdraw);
 app.use("/api/v1/payment", payment);
 
-// Body parsers (after routes)
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(express.json()); // Optional, can replace bodyParser.json()
-
 // Test route
 app.use("/testing", (req, res) => {
   res.send("Hello World, it's working.");
 });
 
-// Error Middleware
+// Error Middleware (place last)
 app.use(ErrorMiddleWare);
 
 module.exports = app;

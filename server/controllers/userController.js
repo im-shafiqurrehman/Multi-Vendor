@@ -55,7 +55,7 @@ router.post("/create-user", upload.single("file"), async (req, res, next) => {
       await sendMail({
         email: user.email,
         subject: "Activate Your Account!",
-        emailMessage: `Hello!\n Dear ${user.name}\n Please click on the link below to activate your account \n${activationUrl}`,
+        emailMessage: `Hello!\n Dear ${user.name}\n Please click on the link below to activate your account \n${activationUrl}\n\nThis link will expire in 5 minutes. If you didn't request this, please ignore this email.\n\nBest regards,\n Half-attire `,
       });
       res.status(201).json({
         success: true,
@@ -140,11 +140,10 @@ router.post(
 
 
 
-// Forgot Password Route
-router.post("/forgot-password", async (req, res, next) => {
+// Send-activation-link Route
+router.post("/send-activation-link", async (req, res, next) => {
   try {
     const { email } = req.body;
-    
     if (!email) {
       return next(new ErrorHandler("Email is required!", 400));
     }
@@ -154,35 +153,34 @@ router.post("/forgot-password", async (req, res, next) => {
       return next(new ErrorHandler("User not found", 404));
     }
 
-    // Generate reset token
-    const resetToken = jwt.sign(
+    // Generate activation token
+    const activationToken = jwt.sign(
       { id: user._id },
-      process.env.ACTIVATION_SECRET, // Using same secret as activation
-      { expiresIn: "1h" } // 1 hour expiry
+      process.env.ACTIVATION_SECRET,
+      { expiresIn: "10m" } // 10 minutes expiry
     );
 
-    // Save token to user (assuming your User model has these fields)
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpiry = Date.now() + 3600000; // 1 hour in milliseconds
+    // Save token to user (using new fields to distinguish from reset)
+    user.activationToken = activationToken;
+    user.activationExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes in milliseconds
     await user.save();
 
-    const resetUrl = `http://localhost:8000/reset-password/${resetToken}`;
+    const activationUrl = `http://localhost:8000/verify-email/${activationToken}`;
 
     try {
       await sendMail({
         email: user.email,
-        subject: "Reset Your Password",
-        emailMessage: `Hello ${user.name},\n\nYou have requested to reset your password. Please click the link below to reset it:\n\n${resetUrl}\n\nThis link will expire in 1 hour. If you didn't request this, please ignore this email.\n\nBest regards,\nYour Team`,
+        subject: "Verify Your Email",
+        emailMessage: `Hello ${user.name},\n\nPlease click the link below to verify your email and proceed with resetting your password:\n\n${activationUrl}\n\nThis link will expire in 10 minutes. If you didn't request this, please ignore this email.\n\nBest regards,\n Half-Attire`,
       });
 
       res.status(200).json({
         success: true,
-        message: `Password reset link sent to ${user.email}`,
+        message: `Activation link sent to ${user.email}`,
       });
     } catch (error) {
-      // Clean up token if email fails
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpiry = undefined;
+      user.activationToken = undefined;
+      user.activationExpiry = undefined;
       await user.save();
       return next(new ErrorHandler(error.message, 500));
     }
@@ -190,6 +188,72 @@ router.post("/forgot-password", async (req, res, next) => {
     return next(new ErrorHandler(error.message, 400));
   }
 });
+
+
+router.get("/verify-email/:token", async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    console.log("Received Token:", token);
+
+    // Verify the token
+    const decoded = jwt.verify(token, process.env.ACTIVATION_SECRET);
+    console.log("Decoded Token:", decoded);
+    const userId = decoded.id;
+
+    // Find user with valid activation token
+    console.log("Searching for user with ID:", userId);
+    const user = await User.findOne({
+      _id: userId,
+      activationToken: token,
+      activationExpiry: { $gt: Date.now() },
+    });
+    console.log("User from DB:", user);
+
+    if (!user) {
+      return next(new ErrorHandler("Invalid or expired activation token", 400));
+    }
+
+    // Clear activation token after verification
+    user.activationToken = undefined;
+    user.activationExpiry = undefined;
+    await user.save();
+    console.log("User after update:", user);
+
+    // Redirect to reset-password page with token as query param
+    res.redirect(`http://localhost:3000/reset-password?token=${token}`);
+  } catch (error) {
+    console.error("Error in verify-email:", error.message);
+    return next(new ErrorHandler(error.message, 400));
+  }
+});
+
+
+router.post("/set-new-password", async (req, res, next) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return next(new ErrorHandler("Email and new password are required", 400));
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    // Update password (assumes pre-save hook hashes it)
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (error) {
+    return next(new ErrorHandler(error.message, 400));
+  }
+});
+
 
 
 

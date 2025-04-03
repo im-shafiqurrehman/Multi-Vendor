@@ -68,12 +68,17 @@ router.post("/create-user", upload.single("file"), async (req, res, next) => {
     next(new ErrorHandler(error.message, 400));
   }
 });
+
+
 //create activation Token (Function)
 const createActivationToken = (user) => {
   return jwt.sign(user, process.env.ACTIVATION_SECRET, {
     expiresIn: process.env.JWT_EXPIRES,
   });
 };
+
+
+
 //activate user Route
 router.post(
   "/activation",
@@ -105,6 +110,9 @@ router.post(
     }
   })
 );
+
+
+
 //login_user Route
 router.post(
   "/login-user",
@@ -132,6 +140,60 @@ router.post(
 
 
 
+// Forgot Password Route
+router.post("/forgot-password", async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return next(new ErrorHandler("Email is required!", 400));
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    // Generate reset token
+    const resetToken = jwt.sign(
+      { id: user._id },
+      process.env.ACTIVATION_SECRET, // Using same secret as activation
+      { expiresIn: "1h" } // 1 hour expiry
+    );
+
+    // Save token to user (assuming your User model has these fields)
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpiry = Date.now() + 3600000; // 1 hour in milliseconds
+    await user.save();
+
+    const resetUrl = `http://localhost:8000/reset-password/${resetToken}`;
+
+    try {
+      await sendMail({
+        email: user.email,
+        subject: "Reset Your Password",
+        emailMessage: `Hello ${user.name},\n\nYou have requested to reset your password. Please click the link below to reset it:\n\n${resetUrl}\n\nThis link will expire in 1 hour. If you didn't request this, please ignore this email.\n\nBest regards,\nYour Team`,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `Password reset link sent to ${user.email}`,
+      });
+    } catch (error) {
+      // Clean up token if email fails
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpiry = undefined;
+      await user.save();
+      return next(new ErrorHandler(error.message, 500));
+    }
+  } catch (error) {
+    return next(new ErrorHandler(error.message, 400));
+  }
+});
+
+
+
+
 //load User Route
 router.get(
   "/get-user",
@@ -151,6 +213,8 @@ router.get(
     }
   })
 );
+
+
 
 
 // Logout User

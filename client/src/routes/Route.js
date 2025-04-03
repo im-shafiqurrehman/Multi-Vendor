@@ -17,9 +17,11 @@ import ShopLoginPage from "../pages/ShopLoginPage.jsx";
 import ShopHomePage from "../pages/Shop/ShopHomePage.jsx";
 import OrderDetailsPage from "../pages/OrderDetailsPage.jsx";
 import TrackOrderPage from "../pages/TrackOrderPage.jsx";
+ import ForgotPasswordPage from "../pages/ForgotPasswordPage.jsx";
 
 export {
   LoginPage,
+  ForgotPasswordPage,
   SignUpPage,
   ActivationPage,
   HomePage,

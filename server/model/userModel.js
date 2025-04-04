@@ -48,8 +48,8 @@ const userSchema = new mongoose.Schema({
   },
   resetPasswordToken: String,
   resetPasswordTime: Date,
-  activationToken: String, // Add this field
-  activationExpiry: Number, // Add this field
+  activationToken: String, 
+  activationExpiry: Number, 
 });
 
 // Hash password before saving to database

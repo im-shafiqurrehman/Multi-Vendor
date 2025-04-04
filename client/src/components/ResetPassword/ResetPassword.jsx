@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { server } from "../../server";
 import { toast } from "react-toastify";
+import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai"; 
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -12,21 +13,26 @@ const ResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [email, setEmail] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false); // State for new password visibility
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // State for confirm password visibility
 
   // Check for verification token in URL
   useEffect(() => {
     const query = new URLSearchParams(location.search);
     const token = query.get("token");
+    console.log("Token from URL:", token);
+
     if (token) {
+      setIsVerified(true);
+      toast.success("Email verified! Please set your new password.");
+
       axios
-        .get(`${server}/user/verify-email/${token}`)
+        .get(`${server}/user/get-email-by-token/${token}`)
         .then((res) => {
-          setIsVerified(true);
-          setEmail(res.data.email); // Assuming backend returns the email
-          toast.success("Email verified! Please set your new password.");
+          setEmail(res.data.email);
         })
         .catch((err) => {
-          toast.error(err.response?.data?.message || "Invalid or expired link");
+          console.error("Error fetching email:", err.response?.data?.message || err.message);
         });
     }
   }, [location]);
@@ -42,7 +48,7 @@ const ResetPassword = () => {
     try {
       await axios.post(`${server}/user/set-new-password`, { email, newPassword });
       toast.success("Password updated successfully!");
-      setTimeout(() => navigate("/login"), 2000); // Navigate to login after 2s
+      setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
       toast.error(err.response?.data?.message || "Something went wrong");
     } finally {
@@ -76,14 +82,27 @@ const ResetPassword = () => {
                 >
                   New Password
                 </label>
-                <input
-                  type="password"
-                  id="newPassword"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 sm:text-sm transition duration-150 ease-in-out"
-                />
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"} // Toggle type based on state
+                    id="newPassword"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 sm:text-sm transition duration-150 ease-in-out"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
+                  >
+                    {showNewPassword ? (
+                      <AiOutlineEyeInvisible size={20} />
+                    ) : (
+                      <AiOutlineEye size={20} />
+                    )}
+                  </button>
+                </div>
               </div>
               <div>
                 <label
@@ -92,14 +111,27 @@ const ResetPassword = () => {
                 >
                   Confirm Password
                 </label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 sm:text-sm transition duration-150 ease-in-out"
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"} // Toggle type based on state
+                    id="confirmPassword"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 sm:text-sm transition duration-150 ease-in-out"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
+                  >
+                    {showConfirmPassword ? (
+                      <AiOutlineEyeInvisible size={20} />
+                    ) : (
+                      <AiOutlineEye size={20} />
+                    )}
+                  </button>
+                </div>
               </div>
               <div>
                 <button

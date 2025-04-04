@@ -4,9 +4,12 @@ import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import axios from "axios";
 import { server } from "../../server";
 import { toast } from "react-toastify";
+import { useDispatch } from "react-redux"; 
+import { loadUser } from "../../redux/actions/userAction"; 
 
 const Login = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch(); 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [visible, setVisible] = useState(false);
@@ -24,14 +27,10 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     try {
       const res = await axios.post(
         `${server}/user/login-user`,
-        {
-          email,
-          password,
-        },
+        { email, password },
         { withCredentials: true }
       );
 
@@ -44,10 +43,10 @@ const Login = () => {
       }
 
       toast.success("Login Success!");
-      navigate("/");
-      window.location.reload(true);
+      await dispatch(loadUser()); // Dispatch loadUser and wait for it to complete
+      navigate("/"); // Navigate after Redux state is updated
     } catch (err) {
-      toast.error(err.response.data.message);
+      toast.error(err.response?.data?.message || "Login failed");
     }
   };
 

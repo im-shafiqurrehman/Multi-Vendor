@@ -4,10 +4,12 @@ const ErrorMiddleWare = require("./middlewares/error");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+const path = require("path");
 
 if (process.env.NODE_ENV !== "PRODUCTION") {
   require("dotenv").config({ path: "./config/.env" });
 }
+
 
 // Middleware (place before routes)
 app.use(cors({
@@ -18,6 +20,8 @@ app.use(cookieParser());
 app.use(bodyParser.json()); // Parse JSON bodies
 app.use(bodyParser.urlencoded({ extended: false })); // Parse URL-encoded bodies
 app.use(express.json()); // Optional, can replace bodyParser.json() if preferred
+// Serve static files from the uploads folder
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes (place after middleware)
 const user = require("./controllers/userController");

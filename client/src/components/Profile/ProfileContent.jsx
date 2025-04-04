@@ -83,11 +83,19 @@ const ProfileContent = ({ active }) => {
         <>
           <div className="flex justify-center w-full">
             <div className="relative">
-              <img
-                src={`${user?.avatar?.url}`}
-                className="w-[150px] h-[150px] rounded-full object-cover border-[3px] border-[#3ad132]"
-                alt=""
-              />
+              {user?.avatar ? (
+                <img
+                  src={`http://localhost:8000/uploads/${user.avatar}`} // Use filename directly
+                  className="w-[150px] h-[150px] rounded-full object-cover border-[3px] border-[#3ad132]"
+                  alt="User Avatar"
+                  onLoad={() => console.log("Profile Avatar loaded successfully:", user.avatar)}
+                  onError={(e) => console.log("Profile Avatar load failed:", e.target.src)}
+                />
+              ) : (
+                <div className="w-[150px] h-[150px] rounded-full bg-gray-200 flex items-center justify-center border-[3px] border-[#3ad132]">
+                  <span className="text-gray-500">No Avatar</span>
+                </div>
+              )}
               <div className="w-[30px] h-[30px] bg-[#E3E9EE] rounded-full flex items-center justify-center cursor-pointer absolute bottom-[5px] right-[5px]">
                 <input
                   type="file"

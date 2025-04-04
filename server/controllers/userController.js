@@ -195,12 +195,10 @@ router.get("/verify-email/:token", async (req, res, next) => {
     const { token } = req.params;
     console.log("Received Token:", token);
 
-    // Verify the token
     const decoded = jwt.verify(token, process.env.ACTIVATION_SECRET);
     console.log("Decoded Token:", decoded);
     const userId = decoded.id;
 
-    // Find user with valid activation token
     console.log("Searching for user with ID:", userId);
     const user = await User.findOne({
       _id: userId,
@@ -213,16 +211,44 @@ router.get("/verify-email/:token", async (req, res, next) => {
       return next(new ErrorHandler("Invalid or expired activation token", 400));
     }
 
-    // Clear activation token after verification
     user.activationToken = undefined;
     user.activationExpiry = undefined;
     await user.save();
     console.log("User after update:", user);
 
-    // Redirect to reset-password page with token as query param
-    res.redirect(`http://localhost:3000/reset-password?token=${token}`);
+    // Attempt to redirect
+    const redirectUrl = `http://127.0.0.1:3000/reset-password?token=${token}`;
+    res.redirect(redirectUrl);
   } catch (error) {
     console.error("Error in verify-email:", error.message);
+    // Fallback: Return JSON with redirect URL if redirect fails
+    res.status(200).json({
+      success: true,
+      message: "Email verified. Please navigate to the following URL to reset your password.",
+      redirectUrl: `http://127.0.0.1:3000/reset-password?token=${token}`,
+    });
+  }
+});
+
+
+router.get("/get-email-by-token/:token", async (req, res, next) => {
+  try {
+    const { token } = req.params;
+
+    // Verify the token
+    const decoded = jwt.verify(token, process.env.ACTIVATION_SECRET);
+    const userId = decoded.id;
+
+    // Find the user by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+    res.status(200).json({
+      success: true,
+      email: user.email,
+    });
+  } catch (error) {
     return next(new ErrorHandler(error.message, 400));
   }
 });
@@ -241,7 +267,6 @@ router.post("/set-new-password", async (req, res, next) => {
       return next(new ErrorHandler("User not found", 404));
     }
 
-    // Update password (assumes pre-save hook hashes it)
     user.password = newPassword;
     await user.save();
 
@@ -253,8 +278,6 @@ router.post("/set-new-password", async (req, res, next) => {
     return next(new ErrorHandler(error.message, 400));
   }
 });
-
-
 
 
 
@@ -301,3 +324,5 @@ router.get(
   })
 );
 module.exports = router;
+
+
